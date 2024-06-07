@@ -25,6 +25,11 @@ try:
 except ImportError:
     paramiko = None
 
+try:
+    from google.cloud import storage
+except ImportError:
+    storage = None
+
 
 def choose_downloader(url, progressbar=False):
     """
@@ -61,6 +66,9 @@ def choose_downloader(url, progressbar=False):
     >>> downloader = choose_downloader("doi:DOI/filename.csv")
     >>> print(downloader.__class__.__name__)
     DOIDownloader
+    >>> downloader = choose_downloader("gs://bucketname/blobname.csv")
+    >>> print(downloader.__class__.__name__)
+    GCSDownloader
 
     """
     known_downloaders = {
@@ -69,6 +77,7 @@ def choose_downloader(url, progressbar=False):
         "http": HTTPDownloader,
         "sftp": SFTPDownloader,
         "doi": DOIDownloader,
+        "gs": GCSDownloader,
     }
 
     parsed_url = parse_url(url)
@@ -487,6 +496,125 @@ class SFTPDownloader:  # pylint: disable=too-few-public-methods
             connection.close()
             if sftp is not None:
                 sftp.close()
+
+
+class GCSDownloader:  # pylint: disable=too-few-public-methods
+    """
+    Download manager for fetching files over GCS (Google Cloud Storage).
+
+    When called, downloads the given file URL into the specified local file.
+    Requires `google-cloud-storage <https://pypi.org/project/google-cloud-storage>`__
+    to be installed. Authorization requires a local JSON file with credentials.
+    The path can be set with the ``GOOGLE_APPLICATION_CREDENTIALS`` environment
+    variable or the ``credentials`` argument (see examples).
+
+    Use with :meth:`pooch.Pooch.fetch` or :func:`pooch.retrieve` to customize
+    the download of files (for example, to use authentication or print a
+    progress bar).
+
+    Parameters
+    ----------
+    credentials : str or None
+        Path (and file name) to the JSON file containing of the Google API
+        credentials for authorization. Use None if that is already set as an
+        environment variable.
+    progressbar : bool or an arbitrary progress bar object
+        If True, will print a progress bar of the download to standard
+        error (stderr). Requires `tqdm <https://github.com/tqdm/tqdm>`__ to
+        be installed.
+
+    Examples
+    --------
+
+    Authorize by setting an environment variable.
+
+    >>> import os
+    >>> import pooch
+    >>> url = "gs://bucket_name/blob_name.txt"
+    >>> credentials = "google_app_credentials.json"
+    >>> os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials
+    >>> filename = pooch.retrieve(url, known_hash=None)
+
+    Authorize by passing credentials to custom downloader.
+
+    >>> from pooch import GCSDownloader
+    >>> downloader = GCSDownloader(credentials=credentials)
+    >>> filename = pooch.retrieve(url, known_hash=None, downloader=downloader)
+
+    """
+
+    def __init__(self, credentials=None, progressbar=False):
+        self.credentials = credentials
+        self.progressbar = progressbar
+        errors = []
+        if self.progressbar and tqdm is None:
+            errors.append("Missing package 'tqdm' required for progress bars.")
+        if storage is None:
+            errors.append("Missing package 'google-cloud-storage' required for GCS downloads.")
+        if errors:
+            raise ValueError(" ".join(errors))
+
+    def __call__(self, url, output_file, pooch, check_only=False):
+        """
+        Download the given URL over GCS to the given output file.
+
+        Parameters
+        ----------
+        url : str
+            The URL to the file you want to download.
+        output_file : str or file-like object
+            Path (and file name) to which the file will be downloaded.
+        pooch : :class:`~pooch.Pooch`
+            The instance of :class:`~pooch.Pooch` that is calling this method.
+        check_only : bool
+            If True, will only check if a file exists on the server and
+            **without downloading the file**. Will return ``True`` if the file
+            exists and ``False`` otherwise.
+
+        Returns
+        -------
+        availability : bool or None
+            If ``check_only==True``, returns a boolean indicating if the file
+            is available on the server. Otherwise, returns ``None``.
+
+        """
+        credentials = self.credentials
+        if credentials is None:
+            credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+            if credentials is None:
+                raise ValueError(
+                    "GCSDownloader requires Google App authorization. "
+                    "A credentials path must be provided or set as environment variable."
+                )
+        parsed_url = parse_url(url)
+        storage_client = storage.Client.from_service_account_json(credentials)
+        blob = storage_client.bucket(parsed_url["netloc"]).get_blob(parsed_url["path"][1:])
+        if check_only:
+            available = blob.exists()
+            return available
+        ispath = not hasattr(output_file, "write")
+        if ispath:
+            output_file = open(output_file, "w+b")
+        try:
+            if self.progressbar is True:
+                total = blob.size
+                use_ascii = bool(sys.platform == "win32")
+                progress_kwargs = dict(
+                    total=total,
+                    ncols=79,
+                    ascii=use_ascii,
+                    unit="B",
+                    unit_scale=True,
+                    leave=True,
+                )
+                with tqdm.wrapattr(output_file, "write", **progress_kwargs) as f:
+                    storage_client.download_blob_to_file(blob, f)
+            else:
+                storage_client.download_blob_to_file(blob, output_file)
+        finally:
+            if ispath:
+                output_file.close()
+        return None
 
 
 class DOIDownloader:  # pylint: disable=too-few-public-methods
