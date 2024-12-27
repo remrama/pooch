@@ -128,6 +128,24 @@ def pooch_test_dataverse_url():
     return url
 
 
+def pooch_test_physionet_url():
+    """
+    Get the base URL for the test data stored on a Physionet instance.
+
+    Returns
+    -------
+    url
+        The URL for pooch's test data.
+
+    Notes
+    -----
+    The current URL is to the Sleep-EDF Database Expanded.
+    This should be updated to a Pooch test dataset on Physionet if merged.
+    """
+    url = "doi:10.13026/C2X676/"
+    return url
+
+
 def pooch_test_registry():
     """
     Get a registry for the test data used in Pooch itself.

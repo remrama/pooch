@@ -531,6 +531,7 @@ class DOIDownloader:  # pylint: disable=too-few-public-methods
     * `figshare <https://www.figshare.com>`__
     * `Zenodo <https://www.zenodo.org>`__
     * `Dataverse <https://dataverse.org/>`__ instances
+    * `PhysioNet <https://physionet.org>`__
 
     .. attention::
 
@@ -683,10 +684,12 @@ def doi_to_repository(doi):
         FigshareRepository,
         ZenodoRepository,
         DataverseRepository,
+        PhysionetRepository,
     ]
 
     # Extract the DOI and the repository information
     archive_url = doi_to_url(doi)
+    print(archive_url)
 
     # Try the converters one by one until one of them returned a URL
     data_repository = None
@@ -1161,3 +1164,144 @@ class DataverseRepository(DataRepository):  # pylint: disable=missing-class-docs
             pooch.registry[filedata["dataFile"]["filename"]] = (
                 f"md5:{filedata['dataFile']['md5']}"
             )
+
+
+class PhysionetRepository(DataRepository):  # pylint: disable=missing-class-docstring
+    """
+    Pooch data repository for a `PhysioNet <https://physionet.org>`__
+    repository.
+    """
+
+    def __init__(self, doi, archive_url):
+        self.archive_url = archive_url
+        self.doi = doi
+        self._api_response = None
+
+    @classmethod
+    def initialize(cls, doi, archive_url):
+        """
+        Initialize the data repository if the given URL points to a
+        corresponding repository.
+
+        Initializes a data repository object. This is done as part of
+        a chain of responsibility. If the class cannot handle the given
+        repository URL, it returns `None`. Otherwise a `DataRepository`
+        instance is returned.
+
+        Parameters
+        ----------
+        doi : str
+            The DOI that identifies the repository.
+            Must refer to a PhysioNet repository.
+        archive_url : str
+            The resolved URL for the DOI
+
+        Returns
+        -------
+        data_repository : PhysionetRepository
+            The PhysioNet data repository object
+        """
+
+        # Check whether this is a PhysioNet URL
+        parsed_archive_url = parse_url(archive_url)
+        if parsed_archive_url["netloc"] != "physionet.org":
+            return None
+
+        return cls(doi, archive_url)
+
+    @property
+    def api_response(self):
+        """
+        Cached API response from PhysioNet
+
+        PhysioNet doesn't have an API, but they require a checksum file in
+        every archive named `SHA256SUMS.txt`. It is always formatted as two
+        space-separated columns with checksums on left and filenames on right.
+
+        This method grabs that file and caches the response as a string.
+        """
+        if self._api_response is None:
+            # Lazy import requests to speed up import time
+            import requests  # pylint: disable=C0415
+
+            checksum_download_url = self.download_url("SHA256SUMS.txt")
+            response = requests.get(checksum_download_url, timeout=DEFAULT_TIMEOUT)
+            self._api_response = response.text.strip()
+
+        return self._api_response
+
+    def download_url(self, file_name):
+        """
+        Build the download URL for a PhysioNet file.
+
+        Archive URL structure:
+        https://physionet.org/content/<dataset>/<version>/<fname>
+        Download URL structure:
+        https://physionet.org/files/<dataset>/<version>/<fname>
+
+        Parameters
+        ----------
+        file_name : str
+            The name of the file in the archive that will be downloaded.
+
+        Returns
+        -------
+        download_url : str
+            The HTTP URL that can be used to download the file.
+
+        Notes
+        -----
+        PhysioNet also provides access to data files through
+        Google Cloud Storage via `gsutil` and Amazon Web Services via `aws`.
+        """
+        ## Currently not checking if file exists in the repository here
+        ## because of RecursionError between self.download_url
+        ## and self.archive_url when calling self.load_registry_from_doi().
+        ## Could be addressed by hard-coding the SHA256SUMS.txt download URL
+        ## if needed, though I am not clear on the benefit yet of this check.
+        # # Create list of files in the repository
+        # files = [item.split()[1] for item in self.api_response.split("\n")]
+        # # Check if file exists in the repository
+        # if file_name not in files:
+        #     raise ValueError(
+        #         f"File '{file_name}' not found in data archive "
+        #         f"{self.archive_url} (doi:{self.doi})."
+        #     )
+        # Generate download_url by replacing `content` with `files`
+        base_url = self.archive_url.replace(".org/content/", ".org/files/")
+        download_url = base_url + file_name
+        return download_url
+
+    def populate_registry(self, pooch):
+        """
+        Populate the registry using PhysioNet's checksum file.
+
+        Parameters
+        ----------
+        pooch : Pooch
+            The pooch instance that the registry will be added to.
+
+        Notes
+        -----
+        PhysioNet doesn't have an API. The registry is populated from the
+        checksum file `SHA256SUMS.txt` present in every archive.
+        See the `api_response` property for more details.
+
+        Examples
+        --------
+
+        Create a :class:`~pooch.Pooch` instance for the PhysioNet
+        `Sleep-EDFx Database <https://doi.org/10.13026/C2X676>`__:
+
+        >>> from pooch import create
+        >>> pup = create(path="myproject", base_url="doi:10.13026/C2X676")
+        >>> pup.load_registry_from_doi()
+        >>> print(pup.registry_files)
+        ['data.txt', ...]
+        >>> print(pup.registry)
+        {'data.txt': '9081wo2eb2gc0u...'}
+
+        """
+        for filedata in self.api_response.split("\n"):
+            checksum, filename = filedata.split()
+            pooch.registry[filename] = f"sha256:{checksum}"

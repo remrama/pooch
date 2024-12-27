@@ -45,6 +45,7 @@ from .utils import (
     pooch_test_zenodo_url,
     pooch_test_zenodo_with_slash_url,
     pooch_test_dataverse_url,
+    pooch_test_physionet_url,
 )
 
 
@@ -53,6 +54,7 @@ FIGSHAREURL = pooch_test_figshare_url()
 ZENODOURL = pooch_test_zenodo_url()
 ZENODOURL_W_SLASH = pooch_test_zenodo_with_slash_url()
 DATAVERSEURL = pooch_test_dataverse_url()
+PHYSIONETURL = pooch_test_physionet_url()
 
 
 @pytest.mark.skipif(tqdm is None, reason="requires tqdm")
@@ -138,6 +140,25 @@ def test_doi_downloader(url):
         outfile = os.path.join(local_store, "tiny-data.txt")
         downloader(url + "tiny-data.txt", outfile, None)
         check_tiny_data(outfile)
+
+
+@pytest.mark.network
+def test_physionet_downloader():
+    """
+    Test the Physionet downloader.
+
+    Notes
+    -----
+    If this feature is merged into Pooch, this test should be handled within
+    `test_doi_downloader()` once a Pooch test dataset is available on Physionet.
+
+    Does not test for subdirectory case.
+    Uncomment filename with subdirectory to test for that.
+    """
+    with TemporaryDirectory() as local_store:
+        downloader = DOIDownloader()
+        outfile = os.path.join(local_store, "SC-subjects.xls")
+        downloader(PHYSIONETURL + "SC-subjects.xls", outfile, None)
 
 
 @pytest.mark.network
