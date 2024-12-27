@@ -181,20 +181,14 @@ def parse_url(url):
         raise ValueError(
             f"Invalid DOI link '{url}'. You must not use '//' after 'doi:'."
         )
-    if url.startswith("doi:"):
-        protocol = "doi"
-        parts = url[4:].split("/")
-        if "zenodo" in parts[1].lower():
-            netloc = "/".join(parts[:2])
-            path = "/" + "/".join(parts[2:])
-        else:
-            netloc = "/".join(parts[:-1])
-            path = "/" + parts[-1]
-    else:
-        parsed_url = urlsplit(url)
-        protocol = parsed_url.scheme or "file"
-        netloc = parsed_url.netloc
-        path = parsed_url.path
+    parsed_url = urlsplit(url)
+    if parsed_url.scheme == "doi":
+        parsed_url = parsed_url._replace(
+            netloc=parsed_url.path, path=parsed_url.query
+        )
+    protocol = parsed_url.scheme or "file"
+    netloc = parsed_url.netloc
+    path = parsed_url.path
     return {"protocol": protocol, "netloc": netloc, "path": path}
 
 

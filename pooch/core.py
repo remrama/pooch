@@ -620,7 +620,11 @@ class Pooch:
 
         """
         self._assert_file_in_registry(fname)
-        return self.urls.get(fname, "".join([self.base_url, fname]))
+        if self.base_url.startswith("doi:"):
+            fallback_url = "?".join([self.base_url[:-1], fname])
+        else:
+            fallback_url = "".join([self.base_url, fname])
+        return self.urls.get(fname, fallback_url)
 
     def load_registry(self, fname):
         """
