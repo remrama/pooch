@@ -83,7 +83,7 @@ def test_unsupported_protocol():
         choose_downloader("httpup://some-invalid-url.com")
     # Simulate the DOI format
     with pytest.raises(ValueError):
-        choose_downloader("doii:XXX/XXX/file")
+        choose_downloader("doii:XXX/XXX?file")
 
 
 @pytest.mark.network
@@ -92,7 +92,7 @@ def test_invalid_doi_repository():
     with pytest.raises(ValueError) as exc:
         # Use the DOI of the Pooch paper in JOSS (not a data repository)
         DOIDownloader()(
-            url="doi:10.21105/joss.01943/file_name.txt", output_file=None, pooch=None
+            url="doi:10.21105/joss.01943?file_name.txt", output_file=None, pooch=None
         )
     assert "Invalid data repository 'joss.theoj.org'" in str(exc.value)
 
@@ -168,7 +168,7 @@ def test_figshare_unspecified_version():
     """
     url = FIGSHAREURL
     # Remove the last bits of the doi, where the version is specified and
-    url = url[: url.rindex(".")] + "/"
+    url = url[: url.rindex(".")] + "?"
     # Create expected warning message
     doi = url[4:-1]
     warning_msg = f"The Figshare DOI '{doi}' doesn't specify which version of "

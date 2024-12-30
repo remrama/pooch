@@ -676,7 +676,7 @@ def doi_to_repository(doi):
     # This should go away in a separate issue: DOI handling should
     # not rely on the (non-)existence of trailing slashes. The issue
     # is documented in https://github.com/fatiando/pooch/issues/324
-    if doi[-1] == "/":
+    if doi[-1] in ["/", "?"]:
         doi = doi[:-1]
 
     repositories = [

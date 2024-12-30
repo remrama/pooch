@@ -76,7 +76,7 @@ def pooch_test_figshare_url():
         The URL for pooch's test data.
 
     """
-    url = "doi:10.6084/m9.figshare.14763051.v1/"
+    url = "doi:10.6084/m9.figshare.14763051.v1?"
     return url
 
 
@@ -93,7 +93,7 @@ def pooch_test_zenodo_url():
         The URL for pooch's test data.
 
     """
-    url = "doi:10.5281/zenodo.4924875/"
+    url = "doi:10.5281/zenodo.4924875?"
     return url
 
 
@@ -111,7 +111,7 @@ def pooch_test_zenodo_with_slash_url():
         The URL for pooch's test data.
 
     """
-    url = "doi:10.5281/zenodo.7632643/"
+    url = "doi:10.5281/zenodo.7632643?"
     return url
 
 
@@ -124,7 +124,7 @@ def pooch_test_dataverse_url():
     url
         The URL for pooch's test data.
     """
-    url = "doi:10.11588/data/TKCFEF/"
+    url = "doi:10.11588/data/TKCFEF?"
     return url
 
 

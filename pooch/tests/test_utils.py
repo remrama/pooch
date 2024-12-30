@@ -134,7 +134,7 @@ def test_local_storage_newfile_permissionerror(monkeypatch):
             {"protocol": "ftp", "netloc": "127.0.0.1:8080", "path": "/test.nc"},
         ),
         (
-            "doi:10.6084/m9.figshare.923450.v1/dike.json",
+            "doi:10.6084/m9.figshare.923450.v1?dike.json",
             {
                 "protocol": "doi",
                 "netloc": "10.6084/m9.figshare.923450.v1",
@@ -142,7 +142,7 @@ def test_local_storage_newfile_permissionerror(monkeypatch):
             },
         ),
         (
-            r"doi:10.5281/zenodo.7632643/santisoler/pooch-test-data-v1.zip",
+            r"doi:10.5281/zenodo.7632643?santisoler/pooch-test-data-v1.zip",
             {
                 "protocol": "doi",
                 "netloc": "10.5281/zenodo.7632643",
@@ -160,7 +160,7 @@ def test_parse_url(url, output):
 def test_parse_url_invalid_doi():
     "Should fail if we forget to not include // in the DOI link"
     with pytest.raises(ValueError):
-        parse_url("doi://XXX/XXX/fname.txt")
+        parse_url("doi://XXX/XXX?fname.txt")
 
 
 def test_temporary_file():
