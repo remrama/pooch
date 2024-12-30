@@ -184,7 +184,7 @@ def parse_url(url):
     parsed_url = urlsplit(url)
     if parsed_url.scheme == "doi":
         parsed_url = parsed_url._replace(
-            netloc=parsed_url.path, path=parsed_url.query
+            netloc=parsed_url.path, path="/" + parsed_url.query
         )
     protocol = parsed_url.scheme or "file"
     netloc = parsed_url.netloc
